@@ -5,4 +5,4 @@ number_of_lives = 'lives'
 all_letters = 'all_letters'
 guessed_word = 'guessed_word'
 game_over = 'game_over'
-max_lives = 5
+max_lives = 15
