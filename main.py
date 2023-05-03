@@ -1,6 +1,6 @@
 # @test_bot_py
 import logging
-from telegram import Update, InputMediaDocument
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from my_token import TOKEN
 from constants import *
@@ -22,31 +22,22 @@ def input_format(text):  # санитарная обработка введен�
     return text.translate(ch_map).rstrip().strip()
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
-
-
 async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if word_key in context.user_data:
+    if update.message.text == start_a_game_text:
+        await start_game(update, context)
+    elif word_key in context.user_data:
         if context.user_data[game_over] == 'false':
             await guess_word(update, context)
         else:
-            await help(update, context)
+            await start(update, context)
     else:
-        await help(update, context)
-    print(context.user_data)
-    # await context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
+        await start(update, context)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text)
-    # await context.bot.send_document(chat_id=update.effective_chat.id, document=open("src/all_pictures.jpg", "rb"))
-    # await context.bot.send_photo(chat_id=update.effective_chat.id, photo=open("src/all_pictures.jpg", "rb"))
-
-
-async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text=help_text)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text,
+                                   reply_markup=ReplyKeyboardMarkup([[start_a_game_text]], one_time_keyboard=True)
+                                   )
 
 
 async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,9 +48,11 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data[guessed_word] = ['_ ' for _ in range(len(context.user_data[word_key]))]
         context.user_data[all_letters] = ''
         context.user_data[game_over] = 'false'
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="I guessed a word " + ''.join(
-                                           context.user_data[guessed_word]) + ". Now, please, write a letter")
+        await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                     photo=open(game_pictures_paths[max_lives - context.user_data[number_of_lives]],
+                                                "rb"),
+                                     caption="I guessed a word " + ''.join(context.user_data[guessed_word]) +
+                                             ". Now, please, write a letter")
     except:
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text="Something went wrong. Please, try again later.")
@@ -83,34 +76,42 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return 2
         if context.user_data[last_written_letter] not in context.user_data[word_key]:
             if context.user_data[number_of_lives] == 1:
-                await context.bot.send_message(chat_id=update.effective_chat.id,
-                                               text="Unfortunately, this letter is not in the guessed word..."
-                                                    " Your lives wasted. It was a word " +
-                                                    context.user_data[word_key])
+                await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                             photo=open(
+                                                 game_pictures_paths[max_lives - context.user_data[number_of_lives]],
+                                                 "rb"),
+                                             caption="Unfortunately, this letter is not in the guessed word..."
+                                                     " Your lives wasted. It was a word " + context.user_data[word_key])
                 return 3
             context.user_data[number_of_lives] -= 1
             context.user_data[all_letters] += context.user_data[last_written_letter]
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="Unfortunately, this letter is not in the guessed word..."
-                                                " Now you have " + str(context.user_data[number_of_lives]) +
-                                                " lives. Guessed word is " +
-                                                ''.join(context.user_data[guessed_word]))
+            await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                         photo=open(game_pictures_paths[max_lives - context.user_data[number_of_lives]],
+                                                    "rb"),
+                                         caption="Unfortunately, this letter is not in the guessed word..."
+                                                 " Now you have " + str(context.user_data[number_of_lives]) +
+                                                 " lives. Guessed word is " +
+                                                 ''.join(context.user_data[guessed_word]))
             return 4
         context.user_data[all_letters] += context.user_data[last_written_letter]
         for i in range(len(context.user_data[word_key])):
             if context.user_data[word_key][i] == context.user_data[last_written_letter]:
                 context.user_data[guessed_word][i] = context.user_data[last_written_letter]
         if ''.join(context.user_data[guessed_word]) == context.user_data[word_key]:
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="Congratulations! You win! The word was " +
-                                                ''.join(context.user_data[guessed_word]) +
-                                                ". Use /start_a_game to play again")
+            await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                         photo=open(congratulation_picture_path,
+                                                    "rb"),
+                                         caption="Congratulations! You win! The word was " +
+                                                 ''.join(context.user_data[guessed_word]) +
+                                                 ". Use /start_a_game to play again")
             context.user_data[game_over] = 'true'
             return 5
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text="Yes, there is this letter in my word. Guessed word is " +
-                                        ''.join(context.user_data[guessed_word]) + ". You have " +
-                                        str(context.user_data[number_of_lives]) + " lives now. Write next letter.")
+    await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                 photo=open(game_pictures_paths[max_lives - context.user_data[number_of_lives]],
+                                            "rb"),
+                                 caption="Yes, there is this letter in my word. Guessed word is " +
+                                         ''.join(context.user_data[guessed_word]) + ". You have " +
+                                         str(context.user_data[number_of_lives]) + " lives now. Write next letter.")
 
 
 if __name__ == '__main__':
@@ -123,7 +124,7 @@ if __name__ == '__main__':
 
     application.add_handler(CommandHandler('start', start))
     # application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), echo))
-    application.add_handler(CommandHandler('help', help))
+    application.add_handler(CommandHandler('help', start))
     application.add_handler(CommandHandler('start_a_game', start_game))
 
     text_handler = MessageHandler(filters.TEXT, conversation_handler)
