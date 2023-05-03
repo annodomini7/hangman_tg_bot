@@ -3,6 +3,7 @@ from constants import database_path
 
 
 def get_result(chat_id: int):
+    """get tuple (num_games, win, lose) for user from database"""
     init_user(chat_id)
     con = sqlite3.connect(database_path)
     cur = con.cursor()
@@ -13,6 +14,7 @@ def get_result(chat_id: int):
 
 
 def set_result(chat_id: int, win=False, lose=False):
+    """increase win or lose for chat_id"""
     init_user(chat_id)
     con = sqlite3.connect(database_path)
     cur = con.cursor()
@@ -26,6 +28,7 @@ def set_result(chat_id: int, win=False, lose=False):
 
 
 def init_user(chat_id: int):
+    """if chat_id not in database this function creates it"""
     con = sqlite3.connect(database_path)
     cur = con.cursor()
     res = cur.execute(f"SELECT * FROM results WHERE id={chat_id}")

@@ -14,7 +14,8 @@ logging.basicConfig(
 )
 
 
-def input_format(text: str):  # санитарная обработка введенного текста
+def input_format(text: str):
+    """formatting input text"""
     ch_map = {
         ord('\t'): ' ',
         ord('\n'): ' ',
@@ -23,7 +24,17 @@ def input_format(text: str):  # санитарная обработка введ
     return text.translate(ch_map).rstrip().strip()
 
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """\start and \help"""
+    keyboard = [
+        [InlineKeyboardButton("Start new game", callback_data=start_callback), ],
+        [InlineKeyboardButton("Check your results", callback_data=result_callback), ], ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, reply_markup=reply_markup)
+
+
 async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """processing of user input"""
     if word_key in context.user_data:
         if context.user_data[game_over] == 'false':
             await guess_word(update, context)
@@ -33,15 +44,8 @@ async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await start(update, context)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [
-        [InlineKeyboardButton("Start new game", callback_data=start_callback), ],
-        [InlineKeyboardButton("Check your results", callback_data=result_callback), ], ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, reply_markup=reply_markup)
-
-
 async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """get a word and start a game"""
     init_user(update.effective_chat.id)
     try:
         word = find_word()
@@ -61,19 +65,21 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """processing user input during the game"""
     context.user_data[last_written_letter] = input_format(update.message.text)
-    # обработка некорректного ввода
+    # checking if input is correct
     if len(context.user_data[last_written_letter]) > 1 or not context.user_data[last_written_letter].isalpha():
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text=incorrect_input)
         return 1
     else:
-        # проверить, есть ли буква среди уже загаданных, если нет, то обработать
         context.user_data[last_written_letter] = context.user_data[last_written_letter].lower()
+        # check if a letter already was written by user
         if context.user_data[last_written_letter] in context.user_data[all_letters]:
             await context.bot.send_message(chat_id=update.effective_chat.id,
                                            text=incorrect_input)
             return 2
+        # check if a letter wasn't written by user
         if context.user_data[last_written_letter] not in context.user_data[word_key]:
             if context.user_data[number_of_lives] == 1:
                 context.user_data[game_over] = 'true'
@@ -113,6 +119,7 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def game_over_actions(update: Update, context: ContextTypes.DEFAULT_TYPE, photo_path: str, text: str, win=False,
                             lose=False):
+    """write a text if a game is over"""
     if game_over not in context.user_data or context.user_data[game_over] == 'false':
         return 1
     set_result(update.effective_chat.id, win, lose)
@@ -127,6 +134,7 @@ async def game_over_actions(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 
 async def word_meaning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """return a meaning of a guessed word. works if game is over"""
     if game_over not in context.user_data or context.user_data[game_over] == 'false':
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text="You can find out the meaning of word only after end of the game.")
@@ -148,8 +156,7 @@ async def result_of_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Parses the CallbackQuery and updates the message text."""
-
+    """choose functions for response a button press"""
     query = update.callback_query
 
     await query.answer()
@@ -165,14 +172,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 if __name__ == '__main__':
+    """initialization of bot"""
     application = ApplicationBuilder().token(TOKEN).build()
-
+    """add functions to bot commands"""
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('help', start))
     application.add_handler(CommandHandler('start_a_game', start_game))
-
+    """function for responding to a button press"""
     application.add_handler(CallbackQueryHandler(button))
-
+    """function for responding to a written text"""
     text_handler = MessageHandler(filters.TEXT, conversation_handler)
     application.add_handler(text_handler)
 

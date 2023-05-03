@@ -4,6 +4,7 @@ import json
 
 
 def find_word() -> str:
+    """get a random noun"""
     api_url = 'https://api.api-ninjas.com/v1/randomword'
     while True:
         response = requests.get(api_url, headers={'X-Api-Key': API_KEY, 'type': 'noun'})
@@ -17,6 +18,7 @@ def find_word() -> str:
 
 
 def meaning_of_word(word: str) -> str:
+    """get a meaning of word"""
     api_url = 'https://api.api-ninjas.com/v1/dictionary?word={}'.format(word)
     response = requests.get(api_url, headers={'X-Api-Key': API_KEY})
     if response.status_code == requests.codes.ok:
@@ -24,6 +26,3 @@ def meaning_of_word(word: str) -> str:
         return text['definition']
     else:
         raise RuntimeError
-
-
-print(meaning_of_word("cellulosid"))
