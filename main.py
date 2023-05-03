@@ -1,10 +1,10 @@
 # @test_bot_py
 import logging
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 from my_token import TOKEN
 from constants import *
-from find_word import find_word
+from work_with_word_api import *
 from texts import *
 
 logging.basicConfig(
@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 
 
-def input_format(text):  # санитарная обработка введенного текста
+def input_format(text: str):  # санитарная обработка введенного текста
     ch_map = {
         ord('\t'): ' ',
         ord('\n'): ' ',
@@ -22,7 +22,7 @@ def input_format(text):  # санитарная обработка введен�
     return text.translate(ch_map).rstrip().strip()
 
 
-async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if word_key in context.user_data:
         if context.user_data[game_over] == 'false':
             await guess_word(update, context)
@@ -32,7 +32,7 @@ async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await start(update, context)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
         [InlineKeyboardButton("Start new game", callback_data=start_callback), ],
         [InlineKeyboardButton("Check your results", callback_data=result_callback), ], ]
@@ -40,11 +40,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, reply_markup=reply_markup)
 
 
-async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         word = find_word()
         context.user_data[word_key] = word
-        print(word)
         context.user_data[number_of_lives] = max_lives
         context.user_data[guessed_word] = ['_ ' for _ in range(len(context.user_data[word_key]))]
         context.user_data[all_letters] = ''
@@ -57,8 +56,6 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text="Something went wrong. Please, try again later.")
-
-    return 1
 
 
 async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -126,8 +123,16 @@ async def game_over_actions(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 
 async def word_meaning(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text="word meaning")
+    if game_over not in context.user_data or context.user_data[game_over] == 'false':
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text="You can find out the meaning of word only after end of the game.")
+        return 1
+    try:
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text=meaning_of_word(context.user_data[word_key]))
+    except:
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text="Something went wrong. Please, try again later.")
 
 
 async def result_of_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
