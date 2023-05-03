@@ -1,7 +1,7 @@
 # @test_bot_py
 import logging
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 from my_token import TOKEN
 from constants import *
 from find_word import find_word
@@ -44,6 +44,7 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         word = find_word()
         context.user_data[word_key] = word
+        print(word)
         context.user_data[number_of_lives] = max_lives
         context.user_data[guessed_word] = ['_ ' for _ in range(len(context.user_data[word_key]))]
         context.user_data[all_letters] = ''
@@ -76,12 +77,10 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return 2
         if context.user_data[last_written_letter] not in context.user_data[word_key]:
             if context.user_data[number_of_lives] == 1:
-                await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                             photo=open(
-                                                 game_pictures_paths[max_lives - context.user_data[number_of_lives]],
-                                                 "rb"),
-                                             caption="Unfortunately, this letter is not in the guessed word..."
-                                                     " Your lives wasted. It was a word " + context.user_data[word_key])
+                await game_over_actions(update, context,
+                                        game_pictures_paths[max_lives - context.user_data[number_of_lives]],
+                                        "Unfortunately, this letter is not in the guessed word..."
+                                        " Your lives wasted. It was a word " + context.user_data[word_key])
                 return 3
             context.user_data[number_of_lives] -= 1
             context.user_data[all_letters] += context.user_data[last_written_letter]
@@ -98,13 +97,11 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if context.user_data[word_key][i] == context.user_data[last_written_letter]:
                 context.user_data[guessed_word][i] = context.user_data[last_written_letter]
         if ''.join(context.user_data[guessed_word]) == context.user_data[word_key]:
-            await context.bot.send_photo(chat_id=update.effective_chat.id,
-                                         photo=open(congratulation_picture_path,
-                                                    "rb"),
-                                         caption="Congratulations! You win! The word was " +
-                                                 ''.join(context.user_data[guessed_word]) +
-                                                 ". Use /start_a_game to play again")
             context.user_data[game_over] = 'true'
+            await game_over_actions(update, context, congratulation_picture_path,
+                                    "Congratulations! You win! The word was " +
+                                    ''.join(context.user_data[guessed_word]) +
+                                    ". Use /start_a_game to play again")
             return 5
     await context.bot.send_photo(chat_id=update.effective_chat.id,
                                  photo=open(game_pictures_paths[max_lives - context.user_data[number_of_lives]],
@@ -112,6 +109,34 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  caption="Yes, there is this letter in my word. Guessed word is " +
                                          ''.join(context.user_data[guessed_word]) + ". You have " +
                                          str(context.user_data[number_of_lives]) + " lives now. Write next letter.")
+
+
+async def game_over_actions(update: Update, context: ContextTypes.DEFAULT_TYPE, photo_path, text):
+    if game_over not in context.user_data or context.user_data[game_over] == 'false':
+        return 1
+
+    keyboard = [
+        [InlineKeyboardButton("Start new game", callback_data="1"), ],
+        [InlineKeyboardButton("Check your results", callback_data="2"), ],
+        [InlineKeyboardButton("Find out word's meaning", callback_data="3")], ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_photo(chat_id=update.effective_chat.id,
+                                 photo=open(photo_path, "rb"),
+                                 caption=text, reply_markup=reply_markup)
+
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Parses the CallbackQuery and updates the message text."""
+
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+
+    await query.answer()
+
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Selected option: {query.data}")
 
 
 if __name__ == '__main__':
@@ -126,7 +151,7 @@ if __name__ == '__main__':
     # application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), echo))
     application.add_handler(CommandHandler('help', start))
     application.add_handler(CommandHandler('start_a_game', start_game))
-
+    application.add_handler(CallbackQueryHandler(button))
     text_handler = MessageHandler(filters.TEXT, conversation_handler)
     application.add_handler(text_handler)
 
