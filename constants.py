@@ -10,4 +10,8 @@ max_lives = 10
 game_pictures_paths = [f'src/{i}.jpg' for i in range(11)]
 congratulation_picture_path = 'src/congratulations.jpg'
 
-start_a_game_text = "Start a game"
+start_a_game_text = "Start new game"
+
+start_callback = '1'
+result_callback = '2'
+words_meaning_callback = '3'

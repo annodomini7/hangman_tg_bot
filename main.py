@@ -23,9 +23,7 @@ def input_format(text):  # санитарная обработка введен�
 
 
 async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text == start_a_game_text:
-        await start_game(update, context)
-    elif word_key in context.user_data:
+    if word_key in context.user_data:
         if context.user_data[game_over] == 'false':
             await guess_word(update, context)
         else:
@@ -35,9 +33,11 @@ async def conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text,
-                                   reply_markup=ReplyKeyboardMarkup([[start_a_game_text]], one_time_keyboard=True)
-                                   )
+    keyboard = [
+        [InlineKeyboardButton("Start new game", callback_data=start_callback), ],
+        [InlineKeyboardButton("Check your results", callback_data=result_callback), ], ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text, reply_markup=reply_markup)
 
 
 async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -116,13 +116,23 @@ async def game_over_actions(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         return 1
 
     keyboard = [
-        [InlineKeyboardButton("Start new game", callback_data="1"), ],
-        [InlineKeyboardButton("Check your results", callback_data="2"), ],
-        [InlineKeyboardButton("Find out word's meaning", callback_data="3")], ]
+        [InlineKeyboardButton("Start new game", callback_data=start_callback), ],
+        [InlineKeyboardButton("Check your results", callback_data=result_callback), ],
+        [InlineKeyboardButton("Find out word's meaning", callback_data=words_meaning_callback)], ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_photo(chat_id=update.effective_chat.id,
                                  photo=open(photo_path, "rb"),
                                  caption=text, reply_markup=reply_markup)
+
+
+async def word_meaning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text="word meaning")
+
+
+async def result_of_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text="result of game")
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -130,13 +140,16 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
 
-    # CallbackQueries need to be answered, even if no notification to the user is needed
-
-    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-
     await query.answer()
-
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Selected option: {query.data}")
+    if query.data == start_callback:
+        await start_game(update, context)
+    elif query.data == result_callback:
+        await result_of_game(update, context)
+    elif query.data == words_meaning_callback:
+        await word_meaning(update, context)
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text="Something went wrong. Please, try again.")
 
 
 if __name__ == '__main__':
