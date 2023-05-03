@@ -6,6 +6,7 @@ from my_token import TOKEN
 from constants import *
 from work_with_word_api import *
 from texts import *
+from database import *
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -41,6 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    init_user(update.effective_chat.id)
     try:
         word = find_word()
         context.user_data[word_key] = word
@@ -74,10 +76,11 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return 2
         if context.user_data[last_written_letter] not in context.user_data[word_key]:
             if context.user_data[number_of_lives] == 1:
+                context.user_data[game_over] = 'true'
                 await game_over_actions(update, context,
                                         game_pictures_paths[max_lives - context.user_data[number_of_lives]],
                                         "Unfortunately, this letter is not in the guessed word..."
-                                        " Your lives wasted. It was a word " + context.user_data[word_key])
+                                        " Your lives wasted. It was a word " + context.user_data[word_key], lose=True)
                 return 3
             context.user_data[number_of_lives] -= 1
             context.user_data[all_letters] += context.user_data[last_written_letter]
@@ -98,7 +101,7 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await game_over_actions(update, context, congratulation_picture_path,
                                     "Congratulations! You win! The word was " +
                                     ''.join(context.user_data[guessed_word]) +
-                                    ". Use /start_a_game to play again")
+                                    ". Use /start_a_game to play again", win=True)
             return 5
     await context.bot.send_photo(chat_id=update.effective_chat.id,
                                  photo=open(game_pictures_paths[max_lives - context.user_data[number_of_lives]],
@@ -108,10 +111,11 @@ async def guess_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                          str(context.user_data[number_of_lives]) + " lives now. Write next letter.")
 
 
-async def game_over_actions(update: Update, context: ContextTypes.DEFAULT_TYPE, photo_path, text):
+async def game_over_actions(update: Update, context: ContextTypes.DEFAULT_TYPE, photo_path: str, text: str, win=False,
+                            lose=False):
     if game_over not in context.user_data or context.user_data[game_over] == 'false':
         return 1
-
+    set_result(update.effective_chat.id, win, lose)
     keyboard = [
         [InlineKeyboardButton("Start new game", callback_data=start_callback), ],
         [InlineKeyboardButton("Check your results", callback_data=result_callback), ],
@@ -132,15 +136,18 @@ async def word_meaning(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                        text=meaning_of_word(context.user_data[word_key]))
     except:
         await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="Something went wrong. Please, try again later.")
+                                       text="I don't know meaning of this word... You can Google it!")
 
 
 async def result_of_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    results = get_result(update.effective_chat.id)
     await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text="result of game")
+                                   text=f"Number of games: {results[0]}\n"
+                                        f"Games won: {results[1]}\n"
+                                        f"Games lost: {results[2]}")
 
 
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Parses the CallbackQuery and updates the message text."""
 
     query = update.callback_query
@@ -160,16 +167,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
 
-    # start_handler = CommandHandler('start', start)
-    # application.add_handler(start_handler)
-
-    # echo_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), echo)
-
     application.add_handler(CommandHandler('start', start))
-    # application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), echo))
     application.add_handler(CommandHandler('help', start))
     application.add_handler(CommandHandler('start_a_game', start_game))
+
     application.add_handler(CallbackQueryHandler(button))
+
     text_handler = MessageHandler(filters.TEXT, conversation_handler)
     application.add_handler(text_handler)
 

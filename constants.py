@@ -9,6 +9,7 @@ max_lives = 10
 
 game_pictures_paths = [f'src/{i}.jpg' for i in range(11)]
 congratulation_picture_path = 'src/congratulations.jpg'
+database_path = 'src/data.db'
 
 start_a_game_text = "Start new game"
 

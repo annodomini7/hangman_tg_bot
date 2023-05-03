@@ -24,3 +24,6 @@ def meaning_of_word(word: str) -> str:
         return text['definition']
     else:
         raise RuntimeError
+
+
+print(meaning_of_word("cellulosid"))
